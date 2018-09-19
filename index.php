@@ -1,87 +1,95 @@
 <?php
 
-//connexion to the sql database
-try {
-  $bdd = new PDO('mysql:host=localhost;dbname=espace_membre;charset=utf8', 'root', '', array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+session_start();
+
+
+
+if (isset($_SESSION['id']) AND isset($_SESSION['pseudo'])){
+  echo 'Bonjour ' . $_SESSION['pseudo'];
+  ?>
+  <a href="disconnection.php" class="m-5">Se déconnecter</a>
+<?php
 }
-catch (\Exception $e) {
-  die('Erreur : ' . $e->getMessage());
-}
+else {
+  //connexion to the sql database
+  try {
+    $bdd = new PDO('mysql:host=localhost;dbname=espace_membre;charset=utf8', 'root', '', array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
+  }
+  catch (\Exception $e) {
+    die('Erreur : ' . $e->getMessage());
+  }
 
 
-// $samePseudo = true ;
-// foreach ($reqPseudo as $testpseudo) {
-//   echo "allo1";
-//   if ($samePseudo == true) {
-//     echo "allo";
-//     if ($_POST['pseudo'] != $testpseudo) {
-//       // code...
-//     }
-//     if ($_POST['pseudo'] == $testpseudo) {
-//       echo "Ce pseudo est déjà utilisé, choisissez en un autre";
-//     }
-//     else {
-//       echo "ca switch";
-//       $samePseudo = false ;
-//     }
-//   }
-// }
+  // Validation tests
 
-// Validation tests
-if (isset($_POST['pseudo']) AND !empty($_POST['pseudo']) AND
-    isset($_POST['password']) AND !empty($_POST['password']) AND
-    isset($_POST['passwordbis']) AND !empty($_POST['passwordbis']) AND
-    isset($_POST['email']) AND !empty($_POST['email'])) {
+  // basic verification on our inputs
+  if (isset($_POST['pseudo']) AND !empty($_POST['pseudo']) AND
+      isset($_POST['password']) AND !empty($_POST['password']) AND
+      isset($_POST['passwordbis']) AND !empty($_POST['passwordbis']) AND
+      isset($_POST['email']) AND !empty($_POST['email'])) {
 
-      $_POST['pseudo'] = htmlspecialchars($_POST['pseudo']);
-      $_POST['password'] = htmlspecialchars($_POST['password']);
-      $_POST['passwordbis'] = htmlspecialchars($_POST['passwordbis']);
-      $_POST['email'] = htmlspecialchars($_POST['email']);
+        //avoiding any dangerous html tag
+        $_POST['pseudo'] = htmlspecialchars($_POST['pseudo']);
+        $_POST['password'] = htmlspecialchars($_POST['password']);
+        $_POST['passwordbis'] = htmlspecialchars($_POST['passwordbis']);
+        $_POST['email'] = htmlspecialchars($_POST['email']);
 
-      $reqPseudo = $bdd->query('SELECT pseudo FROM membres WHERE pseudo ="' . $_POST['pseudo'] . '"');
-      $samePseudo = $reqPseudo->fetch();
+        // asking in our table if we already have a pseudo with this name
+        $reqPseudo = $bdd->query('SELECT pseudo FROM membres WHERE pseudo ="' . $_POST['pseudo'] . '"');
+        // if there is one he is unique
+        $samePseudo = $reqPseudo->fetch();
 
-      if ($samePseudo['pseudo'] == $_POST['pseudo']) {
-        echo "Ce pseudo est déjà utilisé, choisissez en un autre";
-      }
-      else if ($_POST['password'] != $_POST['passwordbis']) {
-        echo "Les deux mots de passe ne sont pas identiques";
-      }
+        // if there is one this condition is correct else we continue our tests
+        if ($samePseudo['pseudo'] == $_POST['pseudo']) {
+          echo "Ce pseudo est déjà utilisé, choisissez en un autre";
+        }
 
-      else if (preg_match("#^[a-z0-9-_.]+@[a-z0-9-_.]{2,}\.[a-z]{2,4}$#", $_POST['email'])) {
+        // verifying if the two passwords are the same one
+        else if ($_POST['password'] != $_POST['passwordbis']) {
+          echo "Les deux mots de passe ne sont pas identiques";
+        }
 
-        $reqMail = $bdd->query('SELECT email FROM membres WHERE email ="' . $_POST['email'] . '"');
-        $sameMail = $reqMail->fetch();
+        // regex for email verification
+        else if (preg_match("#^[a-z0-9-_.]+@[a-z0-9-_.]{2,}\.[a-z]{2,4}$#", $_POST['email'])) {
 
-        if ($sameMail['email'] == $_POST['email']) {
-          echo "Cet email est deja utilisé.";
+          // asking our table if we already have an email with this name
+          $reqMail = $bdd->query('SELECT email FROM membres WHERE email ="' . $_POST['email'] . '"');
+          // it can only be unique
+          $sameMail = $reqMail->fetch();
+
+          // if there is one we stop the inscription
+          if ($sameMail['email'] == $_POST['email']) {
+            echo "Cet email est deja utilisé.";
+          }
+
+          // if we passed all the tests we finally go there
+
+          else {
+            //crypting password for our database
+            $pass_hache = password_hash($_POST['password'], PASSWORD_DEFAULT);
+
+            // Insertion
+            $req = $bdd->prepare('INSERT INTO membres(pseudo, pass, email, date_inscription) VALUES(:pseudo, :pass, :email, CURDATE())');
+            $req->execute(array(
+              'pseudo' => $pseudo = $_POST['pseudo'],
+              'pass' => $pass_hache,
+              'email' => $email = $_POST['email']
+            ));
+
+            echo "Vous avez bien été inscrit(e) !";
+          }
+
         }
         else {
-
-          //crypting password
-          $pass_hache = password_hash($_POST['password'], PASSWORD_DEFAULT);
-
-          // Insertion
-          $req = $bdd->prepare('INSERT INTO membres(pseudo, pass, email, date_inscription) VALUES(:pseudo, :pass, :email, CURDATE())');
-          $req->execute(array(
-            'pseudo' => $pseudo = $_POST['pseudo'],
-            'pass' => $pass_hache,
-            'email' => $email = $_POST['email']
-          ));
-
-          echo "Vous avez bien été inscrit(e) !";
+          echo "Votre email est invalide.";
         }
 
-      }
-      else {
-        echo "Votre email est invalide.";
-      }
+    } //end of tests
 
-  } //end of tests
-
-else {
-  echo "Au moins un champ est invalide.";
-}
+  //in case someone tried to erase our required inputs
+  else {
+    echo "Au moins un champ est invalide.";
+  }
 
 
  ?>
@@ -108,7 +116,8 @@ else {
 
 <body>
 
-  <form method="post" action="index.php" class="mt-5">
+  ?>
+  <form method="post" action="index.php" class="my-5">
     <div class="form-group">
       <label for="exampleInputPseudo">Pseudo</label>
       <input type="text" class="form-control" id="exampleInputPseudo" aria-describedby="pseudoHelp" placeholder="Entrez votre pseudo" name="pseudo" required>
@@ -129,6 +138,12 @@ else {
     <button type="submit" class="btn btn-primary">Inscription</button>
   </form>
 
+  <a href="connexion.php" class="m-5">Me connecter</a>
+
+  <?php
+}
+
+?>
   <script src="js/vendor/modernizr-3.6.0.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
   <script>window.jQuery || document.write('<script src="js/vendor/jquery-3.3.1.min.js"><\/script>')</script>
