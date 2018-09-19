@@ -2,7 +2,7 @@
 
 session_start();
 
-
+include('header.php');
 
 if (isset($_SESSION['id']) AND isset($_SESSION['pseudo'])){
   echo 'Bonjour ' . $_SESSION['pseudo'];
@@ -12,13 +12,10 @@ if (isset($_SESSION['id']) AND isset($_SESSION['pseudo'])){
 }
 else {
   //connexion to the sql database
-  try {
-    $bdd = new PDO('mysql:host=localhost;dbname=espace_membre;charset=utf8', 'root', '', array(PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION));
-  }
-  catch (\Exception $e) {
-    die('Erreur : ' . $e->getMessage());
-  }
+  include('db.php');
+  $inscription = false;
 
+if (isset($_POST['addUser'])) {
 
   // Validation tests
 
@@ -29,57 +26,52 @@ else {
       isset($_POST['email']) AND !empty($_POST['email'])) {
 
         //avoiding any dangerous html tag
-        $_POST['pseudo'] = htmlspecialchars($_POST['pseudo']);
-        $_POST['password'] = htmlspecialchars($_POST['password']);
-        $_POST['passwordbis'] = htmlspecialchars($_POST['passwordbis']);
-        $_POST['email'] = htmlspecialchars($_POST['email']);
+        $pseudo = htmlspecialchars($_POST['pseudo']);
+        $password = htmlspecialchars($_POST['password']);
+        $passwordbis = htmlspecialchars($_POST['passwordbis']);
+        $email = htmlspecialchars($_POST['email']);
 
         // asking in our table if we already have a pseudo with this name
-        $reqPseudo = $bdd->query('SELECT pseudo FROM membres WHERE pseudo ="' . $_POST['pseudo'] . '"');
+        $reqPseudo = $bdd->prepare('SELECT pseudo FROM membres WHERE pseudo = :pseudo');
+        $reqPseudo->execute(array(
+          'pseudo' => $pseudo
+        ));
         // if there is one he is unique
         $samePseudo = $reqPseudo->fetch();
 
         // if there is one this condition is correct else we continue our tests
-        if ($samePseudo['pseudo'] == $_POST['pseudo']) {
+        if ($samePseudo['pseudo'] == $pseudo) {
           echo "Ce pseudo est déjà utilisé, choisissez en un autre";
         }
 
         // verifying if the two passwords are the same one
-        else if ($_POST['password'] != $_POST['passwordbis']) {
+        else if ($password != $passwordbis) {
           echo "Les deux mots de passe ne sont pas identiques";
         }
 
         // regex for email verification
-        else if (preg_match("#^[a-z0-9-_.]+@[a-z0-9-_.]{2,}\.[a-z]{2,4}$#", $_POST['email'])) {
-
-          // asking our table if we already have an email with this name
-          $reqMail = $bdd->query('SELECT email FROM membres WHERE email ="' . $_POST['email'] . '"');
-          // it can only be unique
-          $sameMail = $reqMail->fetch();
-
-          // if there is one we stop the inscription
-          if ($sameMail['email'] == $_POST['email']) {
-            echo "Cet email est deja utilisé.";
-          }
+        else if (preg_match("#^[a-z0-9-_.]+@[a-z0-9-_.]{2,}\.[a-z]{2,4}$#", $email)) {
 
           // if we passed all the tests we finally go there
 
-          else {
             //crypting password for our database
-            $pass_hache = password_hash($_POST['password'], PASSWORD_DEFAULT);
+            $pass_hache = password_hash($password, PASSWORD_DEFAULT);
 
             // Insertion
             $req = $bdd->prepare('INSERT INTO membres(pseudo, pass, email, date_inscription) VALUES(:pseudo, :pass, :email, CURDATE())');
             $req->execute(array(
-              'pseudo' => $pseudo = $_POST['pseudo'],
+              'pseudo' => $pseudo,
               'pass' => $pass_hache,
-              'email' => $email = $_POST['email']
+              'email' => $email
             ));
 
             echo "Vous avez bien été inscrit(e) !";
+            $inscription = true;
+            ?>
+            <a href="connexion.php" class="m-5">Me connecter</a>
+            <?php
           }
 
-        }
         else {
           echo "Votre email est invalide.";
         }
@@ -91,32 +83,13 @@ else {
     echo "Au moins un champ est invalide.";
   }
 
+}
+
+  if (!$inscription) {
 
  ?>
 
 
-<!doctype html>
-<html class="no-js" lang="fr">
-
-<head>
-  <meta charset="utf-8">
-  <meta http-equiv="x-ua-compatible" content="ie=edge">
-  <title>Inscription</title>
-  <meta name="description" content="">
-  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-  <link rel="manifest" href="site.webmanifest">
-  <link rel="apple-touch-icon" href="icon.png">
-  <!-- Place favicon.ico in the root directory -->
-
-  <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO" crossorigin="anonymous">
-  <link rel="stylesheet" href="css/normalize.css">
-  <link rel="stylesheet" href="css/main.css">
-</head>
-
-<body>
-
-  ?>
   <form method="post" action="index.php" class="my-5">
     <div class="form-group">
       <label for="exampleInputPseudo">Pseudo</label>
@@ -135,27 +108,13 @@ else {
     <input type="email" class="form-control" id="exampleInputEmail1" aria-describedby="emailHelp" placeholder="Entrez votre email" name="email" required>
     <small id="emailHelp" class="form-text text-muted">Nous ne partagerons jamais votre email avec qui que ce soit</small>
   </div>
-    <button type="submit" class="btn btn-primary">Inscription</button>
+    <button type="submit" name="addUser" class="btn btn-primary">Inscription</button>
   </form>
 
   <a href="connexion.php" class="m-5">Me connecter</a>
 
   <?php
+  }
 }
-
+include('footer.php');
 ?>
-  <script src="js/vendor/modernizr-3.6.0.min.js"></script>
-  <script src="https://code.jquery.com/jquery-3.3.1.min.js" integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8=" crossorigin="anonymous"></script>
-  <script>window.jQuery || document.write('<script src="js/vendor/jquery-3.3.1.min.js"><\/script>')</script>
-  <script src="js/plugins.js"></script>
-  <script src="js/main.js"></script>
-
-  <!-- Google Analytics: change UA-XXXXX-Y to be your site's ID. -->
-  <script>
-    window.ga = function () { ga.q.push(arguments) }; ga.q = []; ga.l = +new Date;
-    ga('create', 'UA-XXXXX-Y', 'auto'); ga('send', 'pageview')
-  </script>
-  <script src="https://www.google-analytics.com/analytics.js" async defer></script>
-</body>
-
-</html>
