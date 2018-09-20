@@ -6,6 +6,8 @@ include('header.php');
 if (isset($_SESSION['id']) AND isset($_SESSION['pseudo'])){
   echo 'Bonjour ' . $_SESSION['pseudo'];
   ?>
+  <br/>
+  <a href="changeprofil.php">Changement d'identifiant/mot de passe</a>
   <a href="disconnection.php" class="m-5">Se déconnecter</a>
 <?php
 }

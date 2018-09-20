@@ -34,7 +34,7 @@ $isPasswordCorrect = password_verify($password, $resultat['pass']);
        echo 'Vous êtes connecté !';
        ?>
        <a href="index.php" class="m-5">Accueil</a>
-       <a href="connexion.php" class="m-5">Page de connexion</a>
+       <a href="connexion.php" class="m-5">Page de Profil</a>
       <?php
      }
      else {
